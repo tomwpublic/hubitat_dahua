@@ -1,0 +1,165 @@
+/*
+
+Copyright 2022 - tomw
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+-------------------------------------------
+
+Change history:
+
+0.9.0 - tomw - Initial release
+
+*/
+
+definition(
+    name: "Dahua camera discovery", namespace: "tomw", author: "tomw",
+            description: "Discover and create virtual devices for Dahua, Amcrest, and Lorex cameras",
+            category: "Convenience", iconUrl: "", iconX2Url: "", iconX3Url: "")
+
+preferences
+{
+    page(name: "setupPage")
+    page(name: "discoveryPage")
+}
+
+def setupPage()
+{
+    dynamicPage(name: "setupPage", title: "", nextPage: "discoveryPage", install: false, uninstall: true)
+    {
+        section
+        {
+            input name: "ipAddress", type: "text", title: "IP address of NVR or camera", required: true
+            input name: "port", type: "text", title: "network port (typically 80)", required: true, default: "80"
+            input name:	"username", type: "text", title: "username for this device", required: true, default: "admin"
+            input name:	"password", type: "password", title: "password for this device", required: true
+        }
+        section
+        {
+            input name:	"enableLogging", type: "bool", title: "Enable Debug Logging?", defaultValue: false, required: true
+        }
+    }
+}
+
+def discoveryPage()
+{
+    def devsDiscovered = discoverDahuaDevices(ipAddress, username, password)
+    
+    def devsDiscOpts = [:]
+    devsDiscovered.each{ k, v -> devsDiscOpts.put(devsDiscovered[k]["IPv4Address.IPAddress"], devsDiscovered[k]["MachineName"]) }    
+    logDebug("discovered devs = ${devsDiscOpts}")
+    
+    dynamicPage(name: "discoveryPage", title: "", install: true, uninstall: true)
+    {
+        section
+        {
+            paragraph("<b>Discovered devices:</b> ${devsDiscOpts}")
+            input(name: "devsToCreate", type: "enum", title: "Create children for these devices:", options: devsDiscOpts, multiple: true, required: true, width:4)
+        }
+    }
+}
+
+def updated()
+{
+    installed()
+}
+
+def installed()
+{
+    logDebug("devs to create = ${devsToCreate}")
+    
+    def childAlias = ""
+    
+    devsToCreate.each
+    {
+        childAlias = it + "-camera"
+        def ch = getChildDevice(childAlias) ?: addChildDevice("tomw", "Dahua/Amcrest Camera", childAlias, [name: childAlias, label: childAlias])
+        
+        if(ch)
+        {
+            def devDetails =
+                [
+                    ipAddress: it
+                ]
+            
+            ch.setupDevDetails(devDetails)
+        }
+    }
+}
+
+def uninstalled()
+{
+    getChildDevices()?.each
+    {
+        deleteChildDevice(it.getDeviceNetworkId())
+    }
+}
+
+def logDebug(msg)
+{
+    if(enableLogging)
+    {
+        log.debug "${msg}"
+    }
+}
+
+def discoverDahuaDevices(ipAddress, username, password)
+{
+    def resp = ""
+    httpGet("http://${username}:${password}@${ipAddress}:${port}/cgi-bin/deviceDiscovery.cgi?action=attach")
+    {
+        res ->
+        resp = strReaderToString(res.data)
+    }
+    
+    Map respMap = [:]
+    
+    resp.eachLine
+    {
+        // each line looks like:  deviceInfo[0].DeviceClass=DB\r\n
+        def stripped = it?.split('deviceInfo\\[')?.getAt(1)
+        
+        def arrIndex = stripped?.split('\\]')?.getAt(0)
+        if(!respMap.containsKey(arrIndex.toString())) { respMap.putAt(arrIndex, [:]) }
+        
+        def term = stripped?.split('\\].')?.getAt(1)?.split('=')  
+        if(term.size() == 2)
+        {
+            respMap[arrIndex]?.putAt(term[0]?.trim(), tempMap ?: term[1]?.trim())
+        }
+    }
+    
+    return respMap
+}
+
+def strReaderToString(reader)
+{
+    if(null == reader) { return }
+    
+    // https://stackoverflow.com/a/17751100
+    java.lang.StringBuilder builder = new java.lang.StringBuilder()
+    
+    // non-zero value so we read at least once
+    int charsRead = 1
+    char[] chars = new char[1024]
+    
+    while(charsRead > 0)
+    {
+        charsRead = reader.read(chars, 0, chars.length)
+        if(charsRead>0) { builder.append(chars, 0, charsRead) }
+    }
+    
+    def str = builder.toString()
+    
+    return str
+}

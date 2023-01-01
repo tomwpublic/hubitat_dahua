@@ -1,0 +1,30 @@
+{
+  "packageName": "hubitat_dahua",
+  "author": "tomw",
+  "version": "0.9.0",
+  "minimumHEVersion": "2.1.9",
+  "dateReleased": "2022-12-25",
+  "drivers": [
+    {
+      "id": "fa12cdcc-ecbe-4a16-8a1b-2a22ae8ed5c9",
+      "name": "Dahua/Amcrest Camera",
+      "namespace": "tomw",
+      "location": "https://raw.githubusercontent.com/tomwpublic/hubitat_dahua/main/cameraDriver",
+      "required": true
+    }
+  ],
+  "apps": [
+    {
+      "id": "e194c0f0-312b-4fd6-9066-d63ea728f371",
+      "name": "Dahua camera discovery",
+      "namespace": "tomw",
+      "location": "https://raw.githubusercontent.com/tomwpublic/hubitat_dahua/main/cameraDiscoveryApp",
+      "required": false
+    }  
+  ],
+	
+  "licenseFile": "https://raw.githubusercontent.com/tomwpublic/hubitat_dahua/main/LICENSE",
+  "releaseNotes": "0.9.0 - tomw - Initial release.",
+  "documentationLink": "https://github.com/tomwpublic/hubitat_dahua/blob/main/README.md",
+  "communityLink": "TBD"
+}
