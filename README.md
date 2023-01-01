@@ -4,6 +4,8 @@ This package provides a Hubitat integration for Dahua-supplied IP cameras, inclu
 
 Supported capabilities include ImageCapture, MotionSensor, PushableButton (for doorbells), cross line detection, cross region detection, and object detection (if supported by your camera).
 
+All events are based on real-time events pushed from the camera.  There is no polling for events or status.
+
 Thanks to techbill from the Hubitat forums for all of their testing, feedback, and suggestions.  And thanks to mluck for the inspiration.
 
 # Manual Installation instructions:
@@ -31,6 +33,9 @@ If you must install manually, follow these steps:
 * Observe events on the attribute `crossLineDetected`and `crossRegionDetected` attributes, which will report the names of those events.
 * For doorbell devices, the first physical button press on the doorbell will create a child virtual button controller.
     * Observe `pushed` events on button 1 for doorbell button press events.
+* The `closeStream` command will close the event stream from the device.
+    * You can use this if you want to pause receiving real-time events for some reason.
+    * `Initialize` will re-start the event stream.
 
 # (Optional) Use the camera discovery app:
 
