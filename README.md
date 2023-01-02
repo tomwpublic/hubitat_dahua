@@ -24,7 +24,8 @@ If you must install manually, follow these steps:
     * Enter the IP and port number of your camera.
     * Enter the login credentials of your camera.  This should be the same username and password that you use to log in to the web interface of the camera by entering its IP.
     * Save Preferences and then refresh the page.  The name of the virtual device should be updated to match the name of your camera.
-* Note that some recent firmware versions have removed or disabled local API access.  So, if your camera does not respond correctly, try another firmware version and/or camera.
+* **Note that some recent firmware versions have removed or disabled local API access.**
+    * If your camera does not respond correctly, try another firmware version and/or camera.
 
 # Usage instructions (virtual device):
 
