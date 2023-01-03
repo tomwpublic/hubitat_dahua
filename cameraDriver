@@ -264,7 +264,7 @@ def parse(String message)
     if(message.toLowerCase()?.contains("myboundary"))
     {
         event = getEvent()
-        logDebug("event complete:\r\n ${event}")
+        //logDebug("event complete:\r\n ${event}")
         
         if(event?.toLowerCase()?.contains("code"))
         {
