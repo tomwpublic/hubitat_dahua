@@ -18,6 +18,7 @@ limitations under the License.
 
 Change history:
 
+0.9.1 - tomw - Removed duplicate motion events.  Connection reliability improvements.
 0.9.0 - tomw - Initial release
 
 */
@@ -76,6 +77,7 @@ def initialize()
         setDevInfo(devInfo)
         
         runIn(2, openStream)
+        runIn(30, causeEventHeartbeat)
     }
     catch (Exception e)
     {
@@ -246,8 +248,10 @@ def openStream()
     fetchAuthHeader()
     
     def params = genParamsHeaders(suffix)
+    if(params == null) { return }
+    
     params.rawData = true
-    params.pingInteral = 3
+    params.pingInterval = 1
     
     logDebug("openStream() params = ${params}")
     
@@ -255,6 +259,25 @@ def openStream()
     
     def targetUri = genBaseUri() + suffix    
     interfaces.eventStream.connect(targetUri, params)
+}
+
+def causeEventHeartbeat()
+{
+    try
+    {
+        unschedule(causeEventHeartbeat)
+        // This seems to elicit an "InterVideoAccess" response on the AD110, which
+        //   is sufficient as a heartbeat to keep the EventStream from timing out every 60s.
+        
+        // May need to verify that this same behavior is present on other cameras.
+        logDebug("heartbeat: ${strReaderToString(doCommand("/global.cgi?action=getCurrentTime").data)}")
+        
+        runIn(30, causeEventHeartbeat)
+    }
+    catch(Exception e)
+    {
+        // swallow errors
+    }
 }
 
 def parse(String message)
@@ -347,7 +370,7 @@ def processCodeMessage(message)
             handleDoorBellPress(codeMap)
             break
         
-        case "AlarmLocal":
+        //case "AlarmLocal":
         case "VideoMotion":
             handleSimpleMotion(codeMap)
             break
@@ -468,7 +491,11 @@ def fixupUrl(url)
 def genParamsHeaders(suffix)
 {
     suffix = fixupUrl(suffix)
-    return [headers: [Authorization: genAuthDigest(suffix)]]
+    
+    def auth = genAuthDigest(suffix)
+    if(!auth) { return }
+    
+    return [headers: [Authorization: auth]]
 }
 
 def genParamsFull(suffix, withAuth = true)
