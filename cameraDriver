@@ -711,8 +711,6 @@ def doWait()
         throw new Exception("wait timed out: ${wtDetails?.waitSetter}")
     }
     
-    log.debug wtDetails
-    
     wtDetails.putAt("retryCount", wtDetails.getAt("retryCount") - 1)
     
     setVolatileState("syncWaitDetails", wtDetails)
