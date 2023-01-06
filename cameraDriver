@@ -689,6 +689,53 @@ def getVolatileState(name)
     return volatileState.getAt(vsUid())?.getAt(name)
 }
 
+def syncWait(data)
+{
+    // set up for checking 5x per second
+    setVolatileState("syncWaitDetails", [waitSetter: data.waitSetter, retryCount: data.timeoutSec * 5])
+}
+
+def doWait()
+{
+    def wtDetails = getVolatileState("syncWaitDetails")
+    
+    // check every 200 ms whether the wait was cleared...
+    if(wtDetails?.waitSetter == "")
+    {
+        return
+    }
+    
+    // ...or throw an exception if we ran out of tries
+    if(wtDetails?.retryCount == 0)
+    {
+        throw new Exception("wait timed out: ${wtDetails?.waitSetter}")
+    }
+    
+    log.debug wtDetails
+    
+    wtDetails.putAt("retryCount", wtDetails.getAt("retryCount") - 1)
+    
+    setVolatileState("syncWaitDetails", wtDetails)
+    
+    pauseExecution(200)
+    doWait()
+}
+
+def clearWait(data)
+{
+    def wtDetails = getVolatileState("syncWaitDetails")
+    
+    if(data.waitSetter == wtDetails?.getAt("waitSetter"))
+    {
+        syncWait([waitSetter: "", timeoutSec: 0])
+    }
+}
+
+def clearAllWaits()
+{
+    syncWait([waitSetter: "", timeoutSec: 0])
+}
+
 
 //////////////////////////////////////
 // EventSocket handling
@@ -719,22 +766,34 @@ def eventStreamStatus(String message)
     {
         state.reconnectDelay = 1
         setWasExpectedClose(false)
+        setStreamActive(true)
         
         return
     }
     
-    def regex = '(STOP|ERROR)'
-    if(message?.find(regex))
+    if(message?.toLowerCase()?.contains("stop"))
     {
-        if(getWasExpectedClose())
-        {
-            setWasExpectedClose(false)
-            return
-        }
- 
-        reinitialize()        
+        clearWait([waitSetter: "closeStream"])
+        streamStopErrorActions()
+    }
+    
+    if(message?.toLowerCase()?.contains("error"))
+    {
+        streamStopErrorActions()
+    }
+}
+
+def streamStopErrorActions()
+{
+    setStreamActive(false)
+    
+    if(getWasExpectedClose())
+    {
+        setWasExpectedClose(false)
         return
     }
+    
+    reinitialize()
 }
 
 def setWasExpectedClose(wasExpected)
@@ -750,20 +809,36 @@ def getWasExpectedClose()
     return (null != wec) ? wec : true
 }
 
+def setStreamActive(active)
+{
+    setVolatileState("streamActive", active)
+}
+
+def getStreamActive()
+{
+    def active = getVolatileState("streamActive")
+    return (active != null) ? active : false
+}
+
 def closeStream()
 {
     try
     {
         setWasExpectedClose(true)
-        
-        interfaces.eventStream.close()
+        if(getStreamActive())
+        {
+            syncWait([waitSetter: "closeStream", timeoutSec: 60])
+            interfaces.eventStream.close()
+            doWait()
+            
+            setStreamActive(false)
+        }
     }
     catch (Exception e)
     {
-        // swallow errors
+        log.warn e.message
     }
 }
-
 
 //////////////////////////////////////
 // Random helpers and completion
