@@ -270,7 +270,7 @@ def causeEventHeartbeat()
         //   is sufficient as a heartbeat to keep the EventStream from timing out every 60s.
         
         // May need to verify that this same behavior is present on other cameras.
-        logDebug("heartbeat: ${strReaderToString(doCommand("/global.cgi?action=getCurrentTime").data)}")
+        logDebug("heartbeat: ${strReaderToString(doCommand("/global.cgi?action=getCurrentTime")?.data)}")
         
         runIn(30, causeEventHeartbeat)
     }
@@ -828,20 +828,23 @@ def closeStream()
             syncWait([waitSetter: "closeStream", timeoutSec: 60])
             interfaces.eventStream.close()
             doWait()
-            
-            setStreamActive(false)
         }
     }
     catch (Exception e)
     {
         log.warn e.message
     }
+    finally
+    {
+        // regardless of whether closed or timed out,
+        //   set stream as inactive so it can be restarted later
+        setStreamActive(false)
+    }
 }
 
 //////////////////////////////////////
 // Random helpers and completion
 //////////////////////////////////////
-
 
 def strReaderToString(reader)
 {
