@@ -92,6 +92,11 @@ def updated()
     initialize()
 }
 
+def uninstalled()
+{
+    deleteImageFile()
+}
+
 def setupDevDetails(devDetails)
 {
     if(!devDetails) { return }
@@ -139,6 +144,7 @@ def tempViewImage()
 
 def clearImages()
 {
+    deleteImageFile()
     sendEvent(name: "image", value: "n/a")
     sendEvent(name: "imageTimestamp", value: "n/a")
 }
@@ -875,15 +881,38 @@ def writeImageToFile(String image)
     try
     {
         httpPost(params)
-        { resp ->
-            success = resp?.data?.success
-        }
-        
+        { resp -> success = resp?.data?.success }        
         return success
     }
     catch(Exception e)
     {
 		log.error "Error writing file: ${e.message}"
+	}
+}
+
+def deleteImageFile(fileName = fileName())
+{
+    // thanks -- https://raw.githubusercontent.com/thebearmay/hubitat/main/fileMgr.groovy
+    
+    def body = groovy.json.JsonOutput.toJson( [name:"${fileName}", type:"file"] )
+    params = 
+        [
+            uri: "http://127.0.0.1:8080",
+            path: "/hub/fileManager/delete",
+            contentType:"text/plain",
+            requestContentType:"application/json",
+            body: body
+        ]
+    
+    def success
+    try
+    {
+        httpPost(params)
+        { }
+    }
+    catch(Exception e)
+    {
+		log.error "Error deleting file: ${e.message}"
 	}
 }
 
