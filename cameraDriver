@@ -130,18 +130,6 @@ def take(channel = "1")
     }
 }
 
-/*
-def tempViewImage()
-{
-    def imgStr = strReaderToString(readImageFromFile())
-    
-    def encodedImage = hubitat.helper.HexUtils.hexStringToByteArray(imgStr)?.encodeBase64()?.toString()
-    def displayImage = '<img src="data:image/jpeg;base64,' + encodedImage + '">'
-    
-    sendEvent(name: "displayImage", value: displayImage)
-}
-*/
-
 def clearImages()
 {
     deleteImageFile()
@@ -914,28 +902,6 @@ def deleteImageFile(fileName = fileName())
     {
 		log.error "Error deleting file: ${e.message}"
 	}
-}
-
-def readImageFromFile(filePath = filePath())
-{
-    def params = 
-        [
-            uri: filePath,
-            contentType: "text/plain",
-            textParser: true
-        ]
-    
-    try
-    {
-        httpGet(params)
-        { resp ->
-            return resp?.data
-        }
-    }
-    catch(Exception e)
-    {
-        log.error "Error reading file: ${e.message}"
-    }
 }
 
 //////////////////////////////////////
