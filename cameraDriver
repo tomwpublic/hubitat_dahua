@@ -18,6 +18,7 @@ limitations under the License.
 
 Change history:
 
+0.9.2 - tomw - Store images from 'take' in File Manager.  More connection reliability.
 0.9.1 - tomw - Removed duplicate motion events.  Connection reliability improvements.
 0.9.0 - tomw - Initial release
 
@@ -34,7 +35,7 @@ metadata
         command "closeStream"
         
         command "clearImages"
-        attribute "displayImage", "string"
+        attribute "imageTimestamp", "string"
         
         attribute "crossLineDetected", "string"
         attribute "crossRegionDetected", "string"
@@ -77,7 +78,6 @@ def initialize()
         setDevInfo(devInfo)
         
         runIn(2, openStream)
-        runIn(30, causeEventHeartbeat)
     }
     catch (Exception e)
     {
@@ -112,12 +112,11 @@ def take(channel = "1")
             stream.read(imageArr, 0, bSize)
             def image = hubitat.helper.HexUtils.byteArrayToHexString(imageArr)
             
-            sendEvent(name: "image", value: image)
-            
-            def encodedImage = imageArr.encodeBase64().toString()
-            def displayImage = '<img src="data:image/jpeg;base64,' + encodedImage + '">'
-            
-            sendEvent(name: "displayImage", value: displayImage)
+            if(writeImageToFile(image))
+            {
+                sendEvent(name: "image", value: filePath(), isStateChange: true)
+                sendEvent(name: "imageTimestamp", value: now())
+            }
         }
     }
     catch (Exception e)
@@ -126,10 +125,22 @@ def take(channel = "1")
     }
 }
 
+/*
+def tempViewImage()
+{
+    def imgStr = strReaderToString(readImageFromFile())
+    
+    def encodedImage = hubitat.helper.HexUtils.hexStringToByteArray(imgStr)?.encodeBase64()?.toString()
+    def displayImage = '<img src="data:image/jpeg;base64,' + encodedImage + '">'
+    
+    sendEvent(name: "displayImage", value: displayImage)
+}
+*/
+
 def clearImages()
 {
     sendEvent(name: "image", value: "n/a")
-    sendEvent(name: "displayImage", value: "n/a")   
+    sendEvent(name: "imageTimestamp", value: "n/a")
 }
 
 def clearAuthMap()
@@ -252,32 +263,14 @@ def openStream()
     
     params.rawData = true
     params.pingInterval = 1
+    params.readTimeout = 300
     
-    logDebug("openStream() params = ${params}")
+    //logDebug("openStream() params = ${params}")
     
     clearEvent()
     
-    def targetUri = genBaseUri() + suffix    
+    def targetUri = genBaseUri() + suffix
     interfaces.eventStream.connect(targetUri, params)
-}
-
-def causeEventHeartbeat()
-{
-    try
-    {
-        unschedule(causeEventHeartbeat)
-        // This seems to elicit an "InterVideoAccess" response on the AD110, which
-        //   is sufficient as a heartbeat to keep the EventStream from timing out every 60s.
-        
-        // May need to verify that this same behavior is present on other cameras.
-        logDebug("heartbeat: ${strReaderToString(doCommand("/global.cgi?action=getCurrentTime")?.data)}")
-        
-        runIn(30, causeEventHeartbeat)
-    }
-    catch(Exception e)
-    {
-        // swallow errors
-    }
 }
 
 def parse(String message)
@@ -772,6 +765,7 @@ def eventStreamStatus(String message)
     if(message?.toLowerCase()?.contains("stop"))
     {
         clearWait([waitSetter: "closeStream"])
+        setStreamActive(false)
         streamStopErrorActions()
     }
     
@@ -783,8 +777,6 @@ def eventStreamStatus(String message)
 
 def streamStopErrorActions()
 {
-    setStreamActive(false)
-    
     if(getWasExpectedClose())
     {
         setWasExpectedClose(false)
@@ -825,6 +817,7 @@ def closeStream()
         setWasExpectedClose(true)
         if(getStreamActive())
         {
+            // anticipate that this wait will be cleared in eventStreamStatus
             syncWait([waitSetter: "closeStream", timeoutSec: 60])
             interfaces.eventStream.close()
             doWait()
@@ -834,11 +827,85 @@ def closeStream()
     {
         log.warn e.message
     }
-    finally
+}
+
+//////////////////////////////////////
+// File system operations
+//////////////////////////////////////
+
+def fileName()
+{
+    return device.getDeviceNetworkId()
+}
+
+def filePath()
+{
+    return "http://127.0.0.1:8080/local/${fileName()}"
+}
+
+def writeImageToFile(String image)
+{
+    if(null == image) { return }
+    
+    // with great thanks to Jean P. May, Jr. (thebearmay) -- https://raw.githubusercontent.com/thebearmay/hubitat/main/fileMgr.groovy
+
+    def imageType = "text/plain"    
+    def boundary = now()?.toString()
+    
+    def header = ("""--${boundary}\r\nContent-Disposition: form-data; name="uploadFile"; filename="${fileName()}"\r\nContent-Type:${imageType}\r\n\r\n""").getBytes("UTF-8")
+    def footer = ("""\r\n\r\n--${boundary}\r\nContent-Disposition: form-data; name="folder"\r\n\r\n--${boundary}--""").getBytes("UTF-8")
+    
+    java.io.ByteArrayOutputStream stream = new java.io.ByteArrayOutputStream()
+    stream.write(header)
+    stream.write(image.getBytes("UTF-8"))
+    stream.write(footer)
+    
+    def params =
+        [
+            uri: 'http://127.0.0.1:8080',
+            path: '/hub/fileManager/upload',
+            query: [ folder: '/' ],
+            requestContentType: "application/octet-stream",
+            headers: [ 'Content-Type': "multipart/form-data; boundary=${boundary}" ],
+            body: stream.toByteArray(),
+            ignoreSSLIssues: true
+        ]
+    
+    def success
+    try
     {
-        // regardless of whether closed or timed out,
-        //   set stream as inactive so it can be restarted later
-        setStreamActive(false)
+        httpPost(params)
+        { resp ->
+            success = resp?.data?.success
+        }
+        
+        return success
+    }
+    catch(Exception e)
+    {
+		log.error "Error writing file: ${e.message}"
+	}
+}
+
+def readImageFromFile(filePath = filePath())
+{
+    def params = 
+        [
+            uri: filePath,
+            contentType: "text/plain",
+            textParser: true
+        ]
+    
+    try
+    {
+        httpGet(params)
+        { resp ->
+            return resp?.data
+        }
+    }
+    catch(Exception e)
+    {
+        log.error "Error reading file: ${e.message}"
     }
 }
 
