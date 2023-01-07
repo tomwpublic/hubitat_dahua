@@ -18,6 +18,7 @@ limitations under the License.
 
 Change history:
 
+0.9.2 - tomw - Improved error handling for discovery process
 0.9.0 - tomw - Initial release
 
 */
@@ -56,7 +57,7 @@ def discoveryPage()
     def devsDiscovered = discoverDahuaDevices(ipAddress, username, password)
     
     def devsDiscOpts = [:]
-    devsDiscovered.each{ k, v -> devsDiscOpts.put(devsDiscovered[k]["IPv4Address.IPAddress"], devsDiscovered[k]["MachineName"]) }    
+    devsDiscovered?.each{ k, v -> devsDiscOpts.put(devsDiscovered[k]["IPv4Address.IPAddress"], devsDiscovered[k]["MachineName"]) }    
     logDebug("discovered devs = ${devsDiscOpts}")
     
     dynamicPage(name: "discoveryPage", title: "", install: true, uninstall: true)
@@ -64,7 +65,7 @@ def discoveryPage()
         section
         {
             paragraph("<b>Discovered devices:</b> ${devsDiscOpts}")
-            input(name: "devsToCreate", type: "enum", title: "Create children for these devices:", options: devsDiscOpts, multiple: true, required: true, width:4)
+            input(name: "devsToCreate", type: "enum", title: "Create children for these devices:", options: devsDiscOpts, multiple: true, width:4)
         }
     }
 }
@@ -116,15 +117,22 @@ def logDebug(msg)
 def discoverDahuaDevices(ipAddress, username, password)
 {
     def resp = ""
-    httpGet("http://${username}:${password}@${ipAddress}:${port}/cgi-bin/deviceDiscovery.cgi?action=attach")
+    try
     {
-        res ->
-        resp = strReaderToString(res.data)
+        httpGet("http://${username}:${password}@${ipAddress}:${port}/cgi-bin/deviceDiscovery.cgi?action=attach")
+        {
+            res ->
+            if(res?.data) { resp = strReaderToString(res.data) }
+        }
+    }
+    catch(Exception e)
+    {
+        log.error "discovery failed: ${e.message}"
+        return
     }
     
     Map respMap = [:]
-    
-    resp.eachLine
+    resp?.eachLine
     {
         // each line looks like:  deviceInfo[0].DeviceClass=DB\r\n
         def stripped = it?.split('deviceInfo\\[')?.getAt(1)
