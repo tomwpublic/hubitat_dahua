@@ -2,7 +2,7 @@
   "packageName": "hubitat_dahua",
   "author": "tomw",
   "version": "0.9.1",
-  "minimumHEVersion": "2.1.9",
+  "minimumHEVersion": "2.3.4.132",
   "dateReleased": "2022-12-25",
   "drivers": [
     {
