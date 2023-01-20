@@ -30,6 +30,8 @@ If you must install manually, follow these steps:
 # Usage instructions (virtual device):
 
 * Use the `take` command to take a snapshot from the device.
+    * This will store an image locally in the File Manager of your Hubitat hub (requires Hubitat software 2.3.4.132 or later).
+    * To display or use the stored image, use my companion app *hubitat_imageServer* (available through HPM and GitHub).
 * Observe events on the `motion` attribute (for video motion) and `smartDetectType` attribute (for AI object detection).
 * Observe events on the attribute `crossLineDetected`and `crossRegionDetected` attributes, which will report the names of those events.
 * For doorbell devices, the first physical button press on the doorbell will create a child virtual button controller.
