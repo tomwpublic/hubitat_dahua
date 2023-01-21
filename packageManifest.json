@@ -1,7 +1,7 @@
 {
   "packageName": "hubitat_dahua",
   "author": "tomw",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "minimumHEVersion": "2.3.4.132",
   "dateReleased": "2022-12-25",
   "drivers": [
@@ -24,7 +24,7 @@
   ],
 	
   "licenseFile": "https://raw.githubusercontent.com/tomwpublic/hubitat_dahua/main/LICENSE",
-  "releaseNotes": "0.9.1 - tomw - Removed duplicate motion events.  Connection reliability improvements.\n0.9.0 - tomw - Initial release.",
+  "releaseNotes": "0.9.2 - tomw - Store images from 'take' in File Manager.  More connection reliability.\n0.9.1 - tomw - Removed duplicate motion events.  Connection reliability improvements.\n0.9.0 - tomw - Initial release.",
   "documentationLink": "https://github.com/tomwpublic/hubitat_dahua/blob/main/README.md",
   "communityLink": "https://community.hubitat.com/t/dahua-and-amcrest-integration-for-cameras-and-doorbells/109047"
 }
